@@ -1,0 +1,83 @@
+(use Double)
+
+(doc Sdf "is a module for Signed Distance Field (SDF) mathematics.
+It provides primitives and combinators for defining 3D geometry as mathematical functions.")
+(defmodule Sdf
+  ;; --- Primitives ---
+
+  (doc sphere "returns the signed distance to a sphere at the origin.")
+  (defn sphere [p r]
+    (- (Vec3.mag p) r))
+
+  (doc box "returns the signed distance to a box at the origin with dimensions 'b'.")
+  (defn box [p b]
+    (let [q (Vec3.init (- (abs @(Vec3.x p)) @(Vec3.x b))
+                       (- (abs @(Vec3.y p)) @(Vec3.y b))
+                       (- (abs @(Vec3.z p)) @(Vec3.z b)))
+          q_max (Vec3.init (max 0.0 @(Vec3.x &q))
+                           (max 0.0 @(Vec3.y &q))
+                           (max 0.0 @(Vec3.z &q)))]
+      (+ (Vec3.mag &q_max) (min 0.0 (max @(Vec3.x &q) (max @(Vec3.y &q) @(Vec3.z &q)))))))
+
+  (doc torus "returns the signed distance to a torus with major radius 'tx' and minor radius 'ty'.")
+  (defn torus [p t]
+    (let [qx (- (sqrt (+ (* @(Vec3.x p) @(Vec3.x p)) (* @(Vec3.z p) @(Vec3.z p)))) @(Vec2.x t))
+          qy @(Vec3.y p)]
+      (- (sqrt (+ (* qx qx) (* qy qy))) @(Vec2.y t))))
+
+  ;; --- Operators ---
+
+  (doc union "returns the union of two distance fields (A ∪ B).")
+  (defn union [a b] (min a b))
+
+  (doc subtract "returns the subtraction of field B from A (A - B).")
+  (defn subtract [a b] (max a (- 0.0 b)))
+
+  (doc intersect "returns the intersection of two distance fields (A ∩ B).")
+  (defn intersect [a b] (max a b))
+
+  (doc smooth-union "returns a smooth union of two distance fields using a k-factor for 'gooeyness'.")
+  (defn smooth-union [a b k]
+    (let [h (Double.clamp 0.0 1.0 (/ (+ (+ (- b a) k) 0.5) k))]
+      (- (lerp b a h) (* k (* h (- 1.0 h))))))
+
+  ;; --- Transformations ---
+
+  (doc translate "offsets a point 'p' by vector 't' for use in an SDF query.")
+  (defn translate [p t]
+    (Vec3.sub p t))
+
+  (defmodule Wgsl
+    (def sphere "fn sdSphere(p: vec3<f32>, r: f32) -> f32 { return length(p) - r; }")
+    
+    (def box "fn sdBox(p: vec3<f32>, b: vec3<f32>) -> f32 {
+  let q = abs(p) - b;
+  return length(max(q, vec3<f32>(0.0))) + min(max(q.x, max(q.y, q.z)), 0.0);
+}")
+
+    (def torus "fn sdTorus(p: vec3<f32>, t: vec2<f32>) -> f32 {
+  let q = vec2<f32>(length(p.xz) - t.x, p.y);
+  return length(q) - t.y;
+}")
+
+    (def smooth-union "fn smin(a: f32, b: f32, k: f32) -> f32 {
+  let h = max(k - abs(a - b), 0.0) / k;
+  return min(a, b) - h * h * k * 0.25;
+}")
+  )
+)
+
+;; --- Minimal local math for zero-dependency portability ---
+
+(deftype Vec2 [x Double, y Double])
+(deftype Vec3 [x Double, y Double, z Double])
+
+(defmodule Vec3
+  (defn init [x y z] (Vec3.init x y z))
+  (defn mag [v] (sqrt (+ (+ (* @(Vec3.x v) @(Vec3.x v)) (* @(Vec3.y v) @(Vec3.y v))) (* @(Vec3.z v) @(Vec3.z v)))))
+  (defn sub [a b] (Vec3.init (- @(Vec3.x a) @(Vec3.x b)) (- @(Vec3.y a) @(Vec3.y b)) (- @(Vec3.z a) @(Vec3.z b))))
+)
+
+(defmodule Vec2
+  (defn init [x y z] (Vec2.init x y))
+)
