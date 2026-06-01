@@ -1,0 +1,33 @@
+(load "Test.carp")
+(use Test)
+(load "sdf.carp")
+(use Sdf)
+(use Vector3)
+
+(deftest sdf-test
+  (let [state (Test.State.init 0 0)]
+    (do
+      ;; Sphere Test
+      (let [p (Vector3.init 0.0 2.0 0.0)
+            d (Sdf.sphere &p 1.0)]
+        (set! state (assert-equal &state 1.0 d "Sphere distance is 1.0")))
+
+      ;; Box Test
+      (let [p (Vector3.init 2.0 0.0 0.0)
+            b (Vector3.init 1.0 1.0 1.0)
+            d (Sdf.box &p &b)]
+        (set! state (assert-equal &state 1.0 d "Box distance is 1.0")))
+
+      ;; Capsule Test
+      (let [p (Vector3.init 0.0 5.0 0.0)
+            a (Vector3.init 0.0 0.0 0.0)
+            b (Vector3.init 0.0 10.0 0.0)
+            d (Sdf.capsule &p &a &b 1.0)]
+        (set! state (assert-equal &state -1.0 d "Point at center of r=1.0 capsule is -1.0")))
+
+      ;; Smooth Union Test
+      (let [d1 1.0 d2 1.2
+            su (Sdf.smooth-union d1 d2 1.0)]
+        (set! state (assert-true &state (< su 1.0) "Smooth union is smaller than constituents in the gooey zone")))
+
+      state)))

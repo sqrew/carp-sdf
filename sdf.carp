@@ -1,29 +1,54 @@
+(load "Vector.carp")
 (use Double)
+(use Vector2)
+(use Vector3)
 
 (doc Sdf "is a module for Signed Distance Field (SDF) mathematics.
-It provides primitives and combinators for defining 3D geometry as mathematical functions.")
+
+### Sign Convention
+- **Negative values**: Inside the surface.
+- **Positive values**: Outside the surface.
+- **Zero**: On the surface boundary.")
 (defmodule Sdf
   ;; --- Primitives ---
 
   (doc sphere "returns the signed distance to a sphere at the origin.")
   (defn sphere [p r]
-    (- (Vec3.mag p) r))
+    (- (Vector3.mag p) r))
 
   (doc box "returns the signed distance to a box at the origin with dimensions 'b'.")
   (defn box [p b]
-    (let [q (Vec3.init (- (abs @(Vec3.x p)) @(Vec3.x b))
-                       (- (abs @(Vec3.y p)) @(Vec3.y b))
-                       (- (abs @(Vec3.z p)) @(Vec3.z b)))
-          q_max (Vec3.init (max 0.0 @(Vec3.x &q))
-                           (max 0.0 @(Vec3.y &q))
-                           (max 0.0 @(Vec3.z &q)))]
-      (+ (Vec3.mag &q_max) (min 0.0 (max @(Vec3.x &q) (max @(Vec3.y &q) @(Vec3.z &q)))))))
+    (let [q (Vector3.init (- (abs @(Vector3.x p)) @(Vector3.x b))
+                          (- (abs @(Vector3.y p)) @(Vector3.y b))
+                          (- (abs @(Vector3.z p)) @(Vector3.z b)))
+          q_max (Vector3.init (max 0.0 @(Vector3.x &q))
+                              (max 0.0 @(Vector3.y &q))
+                              (max 0.0 @(Vector3.z &q)))]
+      (+ (Vector3.mag &q_max) (min 0.0 (max @(Vector3.x &q) (max @(Vector3.y &q) @(Vector3.z &q)))))))
 
   (doc torus "returns the signed distance to a torus with major radius 'tx' and minor radius 'ty'.")
   (defn torus [p t]
-    (let [qx (- (sqrt (+ (* @(Vec3.x p) @(Vec3.x p)) (* @(Vec3.z p) @(Vec3.z p)))) @(Vec2.x t))
-          qy @(Vec3.y p)]
-      (- (sqrt (+ (* qx qx) (* qy qy))) @(Vec2.y t))))
+    (let [qx (- (sqrt (+ (* @(Vector3.x p) @(Vector3.x p)) (* @(Vector3.z p) @(Vector3.z p)))) @(Vector2.x t))
+          qy @(Vector3.y p)]
+      (- (sqrt (+ (* qx qx) (* qy qy))) @(Vector2.y t))))
+
+  (doc capsule "returns the signed distance to a capsule between points 'a' and 'b' with radius 'r'.")
+  (defn capsule [p a b r]
+    (let [pa (Vector3.sub p a)
+          ba (Vector3.sub b a)
+          h (Double.clamp 0.0 1.0 (/ (Vector3.dot &pa &ba) (Vector3.dot &ba &ba)))]
+      (- (Vector3.mag &(Vector3.sub &pa &(Vector3.mul &ba h))) r)))
+
+  (doc cylinder "returns the signed distance to a vertical cylinder with radius 'r' and height 'h'.")
+  (defn cylinder [p r h]
+    (let [d (Vector2.init (- (sqrt (+ (* @(Vector3.x p) @(Vector3.x p)) (* @(Vector3.z p) @(Vector3.z p)))) r)
+                          (- (abs @(Vector3.y p)) h))
+          d_max (Vector2.init (max 0.0 @(Vector2.x &d)) (max 0.0 @(Vector2.y &d)))]
+      (+ (Vector2.mag &d_max) (min 0.0 (max @(Vector2.x &d) @(Vector2.y &d))))))
+
+  (doc plane "returns the signed distance to a plane with normal 'n' (must be normalized) and height 'h'.")
+  (defn plane [p n h]
+    (+ (Vector3.dot p n) h))
 
   ;; --- Operators ---
 
@@ -41,6 +66,16 @@ It provides primitives and combinators for defining 3D geometry as mathematical 
     (let [h (Double.clamp 0.0 1.0 (+ 0.5 (* 0.5 (/ (- b a) k))))]
       (- (lerp b a h) (* k (* h (- 1.0 h))))))
 
+  (doc smooth-subtract "returns a smooth subtraction (A - B).")
+  (defn smooth-subtract [a b k]
+    (let [h (Double.clamp 0.0 1.0 (+ 0.5 (* 0.5 (/ (+ b a) k))))]
+      (+ (lerp b (- 0.0 a) h) (* k (* h (- 1.0 h))))))
+
+  (doc smooth-intersect "returns a smooth intersection (A ∩ B).")
+  (defn smooth-intersect [a b k]
+    (let [h (Double.clamp 0.0 1.0 (+ 0.5 (* 0.5 (/ (- b a) k))))]
+      (+ (lerp b a h) (* k (* h (- 1.0 h))))))
+
   (doc round "rounds the corners of an SDF shape by radius 'r'.")
   (defn round [d r] (- d r))
 
@@ -52,26 +87,26 @@ It provides primitives and combinators for defining 3D geometry as mathematical 
 
   (doc translate "offsets a point 'p' by vector 't' for use in an SDF query.")
   (defn translate [p t]
-    (Vec3.sub p t))
+    (Vector3.sub p t))
 
-  (doc scale "scales the input point 'p' by factor 's'. Note: result should be multiplied by 's' for correct distance.")
-  (defn scale [p s]
-    (Vec3.mul p (/ 1.0 s)))
+  (doc scale-space "scales the input point 'p' by factor 's'. Note: result should be multiplied by 's' for correct distance.")
+  (defn scale-space [p s]
+    (Vector3.mul p (/ 1.0 s)))
 
   (defn rotate-x [p a]
     (let [c (cos a) s (sin a)
-          y @(Vec3.y p) z @(Vec3.z p)]
-      (Vec3.init @(Vec3.x p) (- (* c y) (* s z)) (+ (* s y) (* c z)))))
+          y @(Vector3.y p) z @(Vector3.z p)]
+      (Vector3.init @(Vector3.x p) (- (* c y) (* s z)) (+ (* s y) (* c z)))))
 
   (defn rotate-y [p a]
     (let [c (cos a) s (sin a)
-          x @(Vec3.x p) z @(Vec3.z p)]
-      (Vec3.init (+ (* c x) (* s z)) @(Vec3.y p) (- (* c z) (* s x)))))
+          x @(Vector3.x p) z @(Vector3.z p)]
+      (Vector3.init (+ (* c x) (* s z)) @(Vector3.y p) (- (* c z) (* s x)))))
 
   (defn rotate-z [p a]
     (let [c (cos a) s (sin a)
-          x @(Vec3.x p) y @(Vec3.y p)]
-      (Vec3.init (- (* c x) (* s y)) (+ (* s x) (* c y)) @(Vec3.z p))))
+          x @(Vector3.x p) y @(Vector3.y p)]
+      (Vector3.init (- (* c x) (* s y)) (+ (* s x) (* c y)) @(Vector3.z p))))
 
   (defmodule Wgsl
     (def sphere "fn sdSphere(p: vec3<f32>, r: f32) -> f32 { return length(p) - r; }")
@@ -86,30 +121,15 @@ It provides primitives and combinators for defining 3D geometry as mathematical 
   return length(q) - t.y;
 }")
 
+    (def capsule "fn sdCapsule(p: vec3<f32>, a: vec3<f32>, b: vec3<f32>, r: f32) -> f32 {
+  let pa = p - a; let ba = b - a;
+  let h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  return length(pa - ba * h) - r;
+}")
+
     (def smooth-union "fn smin(a: f32, b: f32, k: f32) -> f32 {
   let h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
   return mix(b, a, h) - k * h * (1.0 - h);
 }")
-    
-    (def rotate-y "fn rotateY(p: vec3<f32>, a: f32) -> vec3<f32> {
-  let c = cos(a); let s = sin(a);
-  return vec3<f32>(c * p.x + s * p.z, p.y, c * p.z - s * p.x);
-}")
   )
-)
-
-;; --- Minimal local math for zero-dependency portability ---
-
-(deftype Vec2 [x Double, y Double])
-(deftype Vec3 [x Double, y Double, z Double])
-
-(defmodule Vec3
-  (defn init [x y z] (Vec3.init x y z))
-  (defn mag [v] (sqrt (+ (+ (* @(Vec3.x v) @(Vec3.x v)) (* @(Vec3.y v) @(Vec3.y v))) (* @(Vec3.z v) @(Vec3.z v)))))
-  (defn sub [a b] (Vec3.init (- @(Vec3.x a) @(Vec3.x b)) (- @(Vec3.y a) @(Vec3.y b)) (- @(Vec3.z a) @(Vec3.z b))))
-  (defn mul [v s] (Vec3.init (* @(Vec3.x v) s) (* @(Vec3.y v) s) (* @(Vec3.z v) s)))
-)
-
-(defmodule Vec2
-  (defn init [x y] (Vec2.init x y))
 )
