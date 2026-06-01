@@ -36,16 +36,42 @@ It provides primitives and combinators for defining 3D geometry as mathematical 
   (doc intersect "returns the intersection of two distance fields (A ∩ B).")
   (defn intersect [a b] (max a b))
 
-  (doc smooth-union "returns a smooth union of two distance fields using a k-factor for 'gooeyness'.")
+  (doc smooth-union "returns a smooth union of two distance fields (IQ formulation).")
   (defn smooth-union [a b k]
-    (let [h (Double.clamp 0.0 1.0 (/ (+ (+ (- b a) k) 0.5) k))]
+    (let [h (Double.clamp 0.0 1.0 (+ 0.5 (* 0.5 (/ (- b a) k))))]
       (- (lerp b a h) (* k (* h (- 1.0 h))))))
+
+  (doc round "rounds the corners of an SDF shape by radius 'r'.")
+  (defn round [d r] (- d r))
+
+  (doc onion "hollows out an SDF shape to a specific thickness.")
+  (defn onion [d thickness]
+    (- (abs d) thickness))
 
   ;; --- Transformations ---
 
   (doc translate "offsets a point 'p' by vector 't' for use in an SDF query.")
   (defn translate [p t]
     (Vec3.sub p t))
+
+  (doc scale "scales the input point 'p' by factor 's'. Note: result should be multiplied by 's' for correct distance.")
+  (defn scale [p s]
+    (Vec3.mul p (/ 1.0 s)))
+
+  (defn rotate-x [p a]
+    (let [c (cos a) s (sin a)
+          y @(Vec3.y p) z @(Vec3.z p)]
+      (Vec3.init @(Vec3.x p) (- (* c y) (* s z)) (+ (* s y) (* c z)))))
+
+  (defn rotate-y [p a]
+    (let [c (cos a) s (sin a)
+          x @(Vec3.x p) z @(Vec3.z p)]
+      (Vec3.init (+ (* c x) (* s z)) @(Vec3.y p) (- (* c z) (* s x)))))
+
+  (defn rotate-z [p a]
+    (let [c (cos a) s (sin a)
+          x @(Vec3.x p) y @(Vec3.y p)]
+      (Vec3.init (- (* c x) (* s y)) (+ (* s x) (* c y)) @(Vec3.z p))))
 
   (defmodule Wgsl
     (def sphere "fn sdSphere(p: vec3<f32>, r: f32) -> f32 { return length(p) - r; }")
@@ -61,8 +87,13 @@ It provides primitives and combinators for defining 3D geometry as mathematical 
 }")
 
     (def smooth-union "fn smin(a: f32, b: f32, k: f32) -> f32 {
-  let h = max(k - abs(a - b), 0.0) / k;
-  return min(a, b) - h * h * k * 0.25;
+  let h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+  return mix(b, a, h) - k * h * (1.0 - h);
+}")
+    
+    (def rotate-y "fn rotateY(p: vec3<f32>, a: f32) -> vec3<f32> {
+  let c = cos(a); let s = sin(a);
+  return vec3<f32>(c * p.x + s * p.z, p.y, c * p.z - s * p.x);
 }")
   )
 )
@@ -76,8 +107,9 @@ It provides primitives and combinators for defining 3D geometry as mathematical 
   (defn init [x y z] (Vec3.init x y z))
   (defn mag [v] (sqrt (+ (+ (* @(Vec3.x v) @(Vec3.x v)) (* @(Vec3.y v) @(Vec3.y v))) (* @(Vec3.z v) @(Vec3.z v)))))
   (defn sub [a b] (Vec3.init (- @(Vec3.x a) @(Vec3.x b)) (- @(Vec3.y a) @(Vec3.y b)) (- @(Vec3.z a) @(Vec3.z b))))
+  (defn mul [v s] (Vec3.init (* @(Vec3.x v) s) (* @(Vec3.y v) s) (* @(Vec3.z v) s)))
 )
 
 (defmodule Vec2
-  (defn init [x y z] (Vec2.init x y))
+  (defn init [x y] (Vec2.init x y))
 )
