@@ -8,26 +8,65 @@
   (let [state (Test.State.init 0 0)]
     (do
       ;; Sphere Test
-      (let [p (Vector3.init 0.0 2.0 0.0)
-            d (Sdf.sphere &p 1.0)]
-        (set! state (assert-equal &state 1.0 d "Sphere distance is 1.0")))
+      (let [p0 (Vector3.init 0.0 0.0 0.0)
+            p1 (Vector3.init 1.0 0.0 0.0)
+            p2 (Vector3.init 2.0 0.0 0.0)
+            r 1.0]
+        (do
+          (set! state (assert-equal &state -1.0 (Sdf.sphere &p0 r) "Sphere center is -r"))
+          (set! state (assert-equal &state 0.0 (Sdf.sphere &p1 r) "Sphere surface is 0.0"))
+          (set! state (assert-equal &state 1.0 (Sdf.sphere &p2 r) "Sphere outside is positive"))))
 
-      ;; Box Test
-      (let [p (Vector3.init 2.0 0.0 0.0)
-            b (Vector3.init 1.0 1.0 1.0)
-            d (Sdf.box &p &b)]
-        (set! state (assert-equal &state 1.0 d "Box distance is 1.0")))
+      ;; Box Test (1x1x1 half-extents)
+      (let [b (Vector3.init 1.0 1.0 1.0)
+            p0 (Vector3.init 0.0 0.0 0.0)
+            p1 (Vector3.init 1.0 0.0 0.0)
+            p2 (Vector3.init 1.0 1.0 1.0)
+            p3 (Vector3.init 2.0 0.0 0.0)]
+        (do
+          (set! state (assert-equal &state -1.0 (Sdf.box &p0 &b) "Box center is -1.0"))
+          (set! state (assert-equal &state 0.0 (Sdf.box &p1 &b) "Box face is 0.0"))
+          (set! state (assert-equal &state 0.0 (Sdf.box &p2 &b) "Box corner is 0.0"))
+          (set! state (assert-equal &state 1.0 (Sdf.box &p3 &b) "Box outside is positive"))))
+
+      ;; Plane Test (Horizontal plane at y=5)
+      (let [n (Vector3.init 0.0 1.0 0.0)
+            h -5.0
+            p0 (Vector3.init 0.0 5.0 0.0)
+            p1 (Vector3.init 0.0 6.0 0.0)
+            p2 (Vector3.init 0.0 4.0 0.0)]
+        (do
+          (set! state (assert-equal &state 0.0 (Sdf.plane &p0 &n h) "Point on plane is 0.0"))
+          (set! state (assert-equal &state 1.0 (Sdf.plane &p1 &n h) "Point above plane is 1.0"))
+          (set! state (assert-equal &state -1.0 (Sdf.plane &p2 &n h) "Point below plane is -1.0"))))
 
       ;; Capsule Test
-      (let [p (Vector3.init 0.0 5.0 0.0)
-            a (Vector3.init 0.0 0.0 0.0)
+      (let [a (Vector3.init 0.0 0.0 0.0)
             b (Vector3.init 0.0 10.0 0.0)
-            d (Sdf.capsule &p &a &b 1.0)]
-        (set! state (assert-equal &state -1.0 d "Point at center of r=1.0 capsule is -1.0")))
+            r 1.0
+            p0 (Vector3.init 0.0 5.0 0.0)   ;; Middle
+            p1 (Vector3.init 0.0 -1.0 0.0)  ;; Bottom tip
+            p2 (Vector3.init 0.0 11.0 0.0)  ;; Top tip
+            p3 (Vector3.init 2.0 5.0 0.0)]  ;; Outside side
+        (do
+          (set! state (assert-equal &state -1.0 (Sdf.capsule &p0 &a &b r) "Capsule axis is -1.0"))
+          (set! state (assert-equal &state 0.0 (Sdf.capsule &p1 &a &b r) "Capsule bottom tip is 0.0"))
+          (set! state (assert-equal &state 0.0 (Sdf.capsule &p2 &a &b r) "Capsule top tip is 0.0"))
+          (set! state (assert-equal &state 1.0 (Sdf.capsule &p3 &a &b r) "Capsule outside is 1.0"))))
+
+      ;; Degenerate Capsule Test (a == b)
+      (let [a (Vector3.init 0.0 0.0 0.0)
+            b (Vector3.init 0.0 0.0 0.0)
+            r 1.0
+            p0 (Vector3.init 0.0 0.0 0.0)
+            p1 (Vector3.init 2.0 0.0 0.0)]
+        (do
+          (set! state (assert-equal &state -1.0 (Sdf.capsule &p0 &a &b r) "Degenerate capsule center is -1.0"))
+          (set! state (assert-equal &state 1.0 (Sdf.capsule &p1 &a &b r) "Degenerate capsule outside is 1.0"))))
 
       ;; Smooth Union Test
-      (let [d1 1.0 d2 1.2
-            su (Sdf.smooth-union d1 d2 1.0)]
-        (set! state (assert-true &state (< su 1.0) "Smooth union is smaller than constituents in the gooey zone")))
+      (let [d1 1.0 d2 1.0 k 1.0
+            su (Sdf.smooth-union d1 d2 k)]
+        (set! state (assert-true &state (< su 1.0) "Smooth union of 1.0 and 1.0 with k=1.0 is < 1.0 (0.75)")))
 
       state)))

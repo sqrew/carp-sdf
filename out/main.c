@@ -602,6 +602,9 @@ typedef double(*Fn__Vector3__double_MUL__Vector3__double_MUL__Vector3__double_MU
 typedef double(*Fn__Vector3__double_MUL__Vector3__double_MUL__double)(Vector3__double*, Vector3__double*);
 
 // Depth 6
+typedef double(*Fn__Vector3__double_MUL__Vector3__double_MUL__double_double)(Vector3__double*, Vector3__double*, double);
+
+// Depth 6
 typedef double(*Fn__Vector3__double_MUL__double)(Vector3__double*);
 
 // Depth 6
@@ -3888,6 +3891,9 @@ double Sdf_capsule(Vector3__double* p, Vector3__double* a, Vector3__double* b, d
 double Sdf_cylinder(Vector3__double* p, double r, double h);
 
 // Depth 500
+double Sdf_plane__double(Vector3__double* p, Vector3__double* n, double h);
+
+// Depth 500
 Vector3__double Sdf_scale_MINUS_space(Vector3__double* p, double s);
 
 // Depth 500
@@ -3912,6 +3918,27 @@ String* Sdf_Wgsl_box;
 
 // Depth 500
 String* Sdf_Wgsl_capsule;
+
+// Depth 500
+String* Sdf_Wgsl_cylinder;
+
+// Depth 500
+String* Sdf_Wgsl_plane;
+
+// Depth 500
+String* Sdf_Wgsl_rotate_MINUS_x;
+
+// Depth 500
+String* Sdf_Wgsl_rotate_MINUS_y;
+
+// Depth 500
+String* Sdf_Wgsl_rotate_MINUS_z;
+
+// Depth 500
+String* Sdf_Wgsl_smooth_MINUS_intersect;
+
+// Depth 500
+String* Sdf_Wgsl_smooth_MINUS_subtract;
 
 // Depth 500
 String* Sdf_Wgsl_smooth_MINUS_union;
@@ -4476,6 +4503,55 @@ void carp_init_globals(int argc, char** argv) {
         static String _2 = "fn smin(a: f32, b: f32, k: f32) -> f32 {\n  let h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);\n  return mix(b, a, h) - k * h * (1.0 - h);\n}";
         String *_2_ref = &_2;
         Sdf_Wgsl_smooth_MINUS_union = _2_ref;
+    }
+
+    // Depth 0
+    {
+        static String _2 = "fn ssub(a: f32, b: f32, k: f32) -> f32 {\n  let h = clamp(0.5 + 0.5 * (b + a) / k, 0.0, 1.0);\n  return mix(b, -a, h) + k * h * (1.0 - h);\n}";
+        String *_2_ref = &_2;
+        Sdf_Wgsl_smooth_MINUS_subtract = _2_ref;
+    }
+
+    // Depth 0
+    {
+        static String _2 = "fn sint(a: f32, b: f32, k: f32) -> f32 {\n  let h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);\n  return mix(b, a, h) + k * h * (1.0 - h);\n}";
+        String *_2_ref = &_2;
+        Sdf_Wgsl_smooth_MINUS_intersect = _2_ref;
+    }
+
+    // Depth 0
+    {
+        static String _2 = "fn rotateZ(p: vec3<f32>, a: f32) -> vec3<f32> {\n  let c = cos(a); let s = sin(a);\n  return vec3<f32>(c * p.x - s * p.y, s * p.x + c * p.y, p.z);\n}";
+        String *_2_ref = &_2;
+        Sdf_Wgsl_rotate_MINUS_z = _2_ref;
+    }
+
+    // Depth 0
+    {
+        static String _2 = "fn rotateY(p: vec3<f32>, a: f32) -> vec3<f32> {\n  let c = cos(a); let s = sin(a);\n  return vec3<f32>(c * p.x + s * p.z, p.y, c * p.z - s * p.x);\n}";
+        String *_2_ref = &_2;
+        Sdf_Wgsl_rotate_MINUS_y = _2_ref;
+    }
+
+    // Depth 0
+    {
+        static String _2 = "fn rotateX(p: vec3<f32>, a: f32) -> vec3<f32> {\n  let c = cos(a); let s = sin(a);\n  return vec3<f32>(p.x, c * p.y - s * p.z, s * p.y + c * p.z);\n}";
+        String *_2_ref = &_2;
+        Sdf_Wgsl_rotate_MINUS_x = _2_ref;
+    }
+
+    // Depth 0
+    {
+        static String _2 = "fn sdPlane(p: vec3<f32>, n: vec3<f32>, h: f32) -> f32 { return dot(p, n) + h; }";
+        String *_2_ref = &_2;
+        Sdf_Wgsl_plane = _2_ref;
+    }
+
+    // Depth 0
+    {
+        static String _2 = "fn sdCylinder(p: vec3<f32>, r: f32, h: f32) -> f32 {\n  let d = vec2<f32>(length(p.xz) - r, abs(p.y) - h);\n  return length(max(d, vec2<f32>(0.0))) + min(max(d.x, d.y), 0.0);\n}";
+        String *_2_ref = &_2;
+        Sdf_Wgsl_cylinder = _2_ref;
     }
 
     // Depth 0
@@ -12815,95 +12891,100 @@ Uint64 Result_unwrap_MINUS_or_MINUS_zero__Uint64_Array__uint8_t(Result__Uint64_A
 }
 
 double Sdf_box(Vector3__double* p, Vector3__double* b) {
-    double _120;
+    double _96;
     /* let */ {
-        double* _13 = Vector3_x__double(p);
-        double _14 = Double_copy(_13);
-        double _15 = Double_abs(_14);
-        double* _19 = Vector3_x__double(b);
+        double* _11 = Vector3_x__double(p);
+        double _12 = Double_copy(_11);
+        double _13 = Double_abs(_12);
+        double px = _13;
+        double* _19 = Vector3_y__double(p);
         double _20 = Double_copy(_19);
-        double _21 = Double__MINUS_(_15, _20);
-        double* _27 = Vector3_y__double(p);
+        double _21 = Double_abs(_20);
+        double py = _21;
+        double* _27 = Vector3_z__double(p);
         double _28 = Double_copy(_27);
         double _29 = Double_abs(_28);
-        double* _33 = Vector3_y__double(b);
-        double _34 = Double_copy(_33);
-        double _35 = Double__MINUS_(_29, _34);
-        double* _41 = Vector3_z__double(p);
-        double _42 = Double_copy(_41);
-        double _43 = Double_abs(_42);
-        double* _47 = Vector3_z__double(b);
-        double _48 = Double_copy(_47);
-        double _49 = Double__MINUS_(_43, _48);
-        Vector3__double _50 = Vector3_init__double(_21, _35, _49);
-        Vector3__double q = _50;
-        Vector3__double* _59 = &q; // ref
-        double* _60 = Vector3_x__double(_59);
-        double _61 = Double_copy(_60);
-        double _62 = max__double(0.0, _61);
-        Vector3__double* _69 = &q; // ref
-        double* _70 = Vector3_y__double(_69);
-        double _71 = Double_copy(_70);
-        double _72 = max__double(0.0, _71);
-        Vector3__double* _79 = &q; // ref
-        double* _80 = Vector3_z__double(_79);
-        double _81 = Double_copy(_80);
-        double _82 = max__double(0.0, _81);
-        Vector3__double _83 = Vector3_init__double(_62, _72, _82);
-        Vector3__double q_max = _83;
-        Vector3__double* _89 = &q_max; // ref
-        double _90 = Vector3_mag__double(_89);
-        Vector3__double* _98 = &q; // ref
-        double* _99 = Vector3_x__double(_98);
-        double _100 = Double_copy(_99);
-        Vector3__double* _106 = &q; // ref
-        double* _107 = Vector3_y__double(_106);
-        double _108 = Double_copy(_107);
-        Vector3__double* _113 = &q; // ref
-        double* _114 = Vector3_z__double(_113);
-        double _115 = Double_copy(_114);
-        double _116 = max__double(_108, _115);
-        double _117 = max__double(_100, _116);
-        double _118 = min__double(0.0, _117);
-        double _119 = Double__PLUS_(_90, _118);
-        _120 = _119;
-        Vector3_delete__double(q);
+        double pz = _29;
+        double* _34 = Vector3_x__double(b);
+        double _35 = Double_copy(_34);
+        double bx = _35;
+        double* _40 = Vector3_y__double(b);
+        double _41 = Double_copy(_40);
+        double by = _41;
+        double* _46 = Vector3_z__double(b);
+        double _47 = Double_copy(_46);
+        double bz = _47;
+        double _52 = Double__MINUS_(px, bx);
+        double qx = _52;
+        double _57 = Double__MINUS_(py, by);
+        double qy = _57;
+        double _62 = Double__MINUS_(pz, bz);
+        double qz = _62;
+        double _68 = max__double(0.0, qx);
+        double _72 = max__double(0.0, qy);
+        double _76 = max__double(0.0, qz);
+        Vector3__double _77 = Vector3_init__double(_68, _72, _76);
+        Vector3__double q_max = _77;
+        Vector3__double* _83 = &q_max; // ref
+        double _84 = Vector3_mag__double(_83);
+        double _92 = max__double(qy, qz);
+        double _93 = max__double(qx, _92);
+        double _94 = min__double(0.0, _93);
+        double _95 = Double__PLUS_(_84, _94);
+        _96 = _95;
         Vector3_delete__double(q_max);
     }
-    return _120;
+    return _96;
 }
 
 double Sdf_capsule(Vector3__double* p, Vector3__double* a, Vector3__double* b, double r) {
-    double _62;
+    double _85;
     /* let */ {
         Vector3__double _12 = Vector3_sub__double(p, a);
         Vector3__double pa = _12;
         Vector3__double _17 = Vector3_sub__double(b, a);
         Vector3__double ba = _17;
-        Vector3__double* _26 = &pa; // ref
-        Vector3__double* _29 = &ba; // ref
-        double _30 = Vector3_dot__double(_26, _29);
-        Vector3__double* _34 = &ba; // ref
-        Vector3__double* _37 = &ba; // ref
-        double _38 = Vector3_dot__double(_34, _37);
-        double _39 = Double__DIV_(_30, _38);
-        double _40 = Double_clamp__double(0.0, 1.0, _39);
-        double h = _40;
-        Vector3__double* _48 = &pa; // ref
-        Vector3__double* _53 = &ba; // ref
-        Vector3__double _55 = Vector3_mul__double(_53, h);
-        Vector3__double* _56 = &_55; // ref
-        Vector3__double _57 = Vector3_sub__double(_48, _56);
-        Vector3__double* _58 = &_57; // ref
-        double _59 = Vector3_mag__double(_58);
-        double _61 = Double__MINUS_(_59, r);
-        _62 = _61;
-        Vector3_delete__double(_55);
-        Vector3_delete__double(_57);
+        Vector3__double* _22 = &ba; // ref
+        Vector3__double* _25 = &ba; // ref
+        double _26 = Vector3_dot__double(_22, _25);
+        double denom = _26;
+        double _84;
+        bool _32 = Double__LT_(denom, 1.0e-6);
+        if (_32) {
+            Vector3__double* _38 = &pa; // ref
+            double _39 = Vector3_mag__double(_38);
+            double _41 = Double__MINUS_(_39, r);
+            double _42 = _41;
+            _84 = _42;
+        } else {
+            double _82;
+            /* let */ {
+                Vector3__double* _53 = &pa; // ref
+                Vector3__double* _56 = &ba; // ref
+                double _57 = Vector3_dot__double(_53, _56);
+                double _59 = Double__DIV_(_57, denom);
+                double _60 = Double_clamp__double(0.0, 1.0, _59);
+                double h = _60;
+                Vector3__double* _68 = &pa; // ref
+                Vector3__double* _73 = &ba; // ref
+                Vector3__double _75 = Vector3_mul__double(_73, h);
+                Vector3__double* _76 = &_75; // ref
+                Vector3__double _77 = Vector3_sub__double(_68, _76);
+                Vector3__double* _78 = &_77; // ref
+                double _79 = Vector3_mag__double(_78);
+                double _81 = Double__MINUS_(_79, r);
+                _82 = _81;
+                Vector3_delete__double(_75);
+                Vector3_delete__double(_77);
+            }
+            double _83 = _82;
+            _84 = _83;
+        }
+        _85 = _84;
         Vector3_delete__double(ba);
         Vector3_delete__double(pa);
     }
-    return _62;
+    return _85;
 }
 
 double Sdf_cylinder(Vector3__double* p, double r, double h) {
@@ -12954,6 +13035,12 @@ double Sdf_cylinder(Vector3__double* p, double r, double h) {
         Vector2_delete__double(d_max);
     }
     return _101;
+}
+
+double Sdf_plane__double(Vector3__double* p, Vector3__double* n, double h) {
+    double _10 = Vector3_dot__double(p, n);
+    double _12 = Double__PLUS_(_10, h);
+    return _12;
 }
 
 Vector3__double Sdf_scale_MINUS_space(Vector3__double* p, double s) {
@@ -14860,96 +14947,270 @@ double lerp__double(double from, double to, double amount) {
 
 int main(int argc, char** argv) {
     carp_init_globals(argc, argv);
-    int _171;
+    int _540;
     /* let */ {
         TestState _9 = Test_State_init(0, 0);
         TestState* _10 = &_9; // ref
         TestState* sdf_MINUS_test = _10;
-        TestState _159;
+        TestState _528;
         /* let */ {
             TestState _21 = Test_State_init(0, 0);
             TestState state = _21;
             /* let */ {
-                Vector3__double _30 = Vector3_init__double(0.0, 2.0, 0.0);
-                Vector3__double p = _30;
-                Vector3__double* _35 = &p; // ref
-                double _37 = Sdf_sphere__double(_35, 1.0);
-                double d = _37;
-                TestState* _44 = &state; // ref
-                static String _47 = "Sphere distance is 1.0";
-                String *_47_ref = &_47;
-                TestState _48 = Test_assert_MINUS_equal__double_String(_44, 1.0, d, _47_ref);
+                Vector3__double _30 = Vector3_init__double(0.0, 0.0, 0.0);
+                Vector3__double p0 = _30;
+                Vector3__double _36 = Vector3_init__double(1.0, 0.0, 0.0);
+                Vector3__double p1 = _36;
+                Vector3__double _42 = Vector3_init__double(2.0, 0.0, 0.0);
+                Vector3__double p2 = _42;
+                double r = 1.0;
+                TestState* _52 = &state; // ref
+                Vector3__double* _57 = &p0; // ref
+                double _59 = Sdf_sphere__double(_57, r);
+                static String _60 = "Sphere center is -r";
+                String *_60_ref = &_60;
+                TestState _61 = Test_assert_MINUS_equal__double_String(_52, -1.0, _59, _60_ref);
                 Test_State_delete(state);
-                state = _48;  // Test.State = Test.State
-                Vector3_delete__double(p);
+                state = _61;  // Test.State = Test.State
+                TestState* _68 = &state; // ref
+                Vector3__double* _73 = &p1; // ref
+                double _75 = Sdf_sphere__double(_73, r);
+                static String _76 = "Sphere surface is 0.0";
+                String *_76_ref = &_76;
+                TestState _77 = Test_assert_MINUS_equal__double_String(_68, 0.0, _75, _76_ref);
+                Test_State_delete(state);
+                state = _77;  // Test.State = Test.State
+                TestState* _84 = &state; // ref
+                Vector3__double* _89 = &p2; // ref
+                double _91 = Sdf_sphere__double(_89, r);
+                static String _92 = "Sphere outside is positive";
+                String *_92_ref = &_92;
+                TestState _93 = Test_assert_MINUS_equal__double_String(_84, 1.0, _91, _92_ref);
+                Test_State_delete(state);
+                state = _93;  // Test.State = Test.State
+                Vector3_delete__double(p0);
+                Vector3_delete__double(p1);
+                Vector3_delete__double(p2);
             }
             /* let */ {
-                Vector3__double _57 = Vector3_init__double(2.0, 0.0, 0.0);
-                Vector3__double p = _57;
-                Vector3__double _63 = Vector3_init__double(1.0, 1.0, 1.0);
-                Vector3__double b = _63;
-                Vector3__double* _68 = &p; // ref
-                Vector3__double* _71 = &b; // ref
-                double _72 = Sdf_box(_68, _71);
-                double d = _72;
-                TestState* _79 = &state; // ref
-                static String _82 = "Box distance is 1.0";
-                String *_82_ref = &_82;
-                TestState _83 = Test_assert_MINUS_equal__double_String(_79, 1.0, d, _82_ref);
+                Vector3__double _103 = Vector3_init__double(1.0, 1.0, 1.0);
+                Vector3__double b = _103;
+                Vector3__double _109 = Vector3_init__double(0.0, 0.0, 0.0);
+                Vector3__double p0 = _109;
+                Vector3__double _115 = Vector3_init__double(1.0, 0.0, 0.0);
+                Vector3__double p1 = _115;
+                Vector3__double _121 = Vector3_init__double(1.0, 1.0, 1.0);
+                Vector3__double p2 = _121;
+                Vector3__double _127 = Vector3_init__double(2.0, 0.0, 0.0);
+                Vector3__double p3 = _127;
+                TestState* _135 = &state; // ref
+                Vector3__double* _140 = &p0; // ref
+                Vector3__double* _143 = &b; // ref
+                double _144 = Sdf_box(_140, _143);
+                static String _145 = "Box center is -1.0";
+                String *_145_ref = &_145;
+                TestState _146 = Test_assert_MINUS_equal__double_String(_135, -1.0, _144, _145_ref);
                 Test_State_delete(state);
-                state = _83;  // Test.State = Test.State
+                state = _146;  // Test.State = Test.State
+                TestState* _153 = &state; // ref
+                Vector3__double* _158 = &p1; // ref
+                Vector3__double* _161 = &b; // ref
+                double _162 = Sdf_box(_158, _161);
+                static String _163 = "Box face is 0.0";
+                String *_163_ref = &_163;
+                TestState _164 = Test_assert_MINUS_equal__double_String(_153, 0.0, _162, _163_ref);
+                Test_State_delete(state);
+                state = _164;  // Test.State = Test.State
+                TestState* _171 = &state; // ref
+                Vector3__double* _176 = &p2; // ref
+                Vector3__double* _179 = &b; // ref
+                double _180 = Sdf_box(_176, _179);
+                static String _181 = "Box corner is 0.0";
+                String *_181_ref = &_181;
+                TestState _182 = Test_assert_MINUS_equal__double_String(_171, 0.0, _180, _181_ref);
+                Test_State_delete(state);
+                state = _182;  // Test.State = Test.State
+                TestState* _189 = &state; // ref
+                Vector3__double* _194 = &p3; // ref
+                Vector3__double* _197 = &b; // ref
+                double _198 = Sdf_box(_194, _197);
+                static String _199 = "Box outside is positive";
+                String *_199_ref = &_199;
+                TestState _200 = Test_assert_MINUS_equal__double_String(_189, 1.0, _198, _199_ref);
+                Test_State_delete(state);
+                state = _200;  // Test.State = Test.State
                 Vector3_delete__double(b);
-                Vector3_delete__double(p);
+                Vector3_delete__double(p0);
+                Vector3_delete__double(p1);
+                Vector3_delete__double(p2);
+                Vector3_delete__double(p3);
             }
             /* let */ {
-                Vector3__double _92 = Vector3_init__double(0.0, 5.0, 0.0);
-                Vector3__double p = _92;
-                Vector3__double _98 = Vector3_init__double(0.0, 0.0, 0.0);
-                Vector3__double a = _98;
-                Vector3__double _104 = Vector3_init__double(0.0, 10.0, 0.0);
-                Vector3__double b = _104;
-                Vector3__double* _109 = &p; // ref
-                Vector3__double* _112 = &a; // ref
-                Vector3__double* _115 = &b; // ref
-                double _117 = Sdf_capsule(_109, _112, _115, 1.0);
-                double d = _117;
-                TestState* _124 = &state; // ref
-                static String _127 = "Point at center of r=1.0 capsule is -1.0";
-                String *_127_ref = &_127;
-                TestState _128 = Test_assert_MINUS_equal__double_String(_124, -1.0, d, _127_ref);
+                Vector3__double _210 = Vector3_init__double(0.0, 1.0, 0.0);
+                Vector3__double n = _210;
+                double h = -5.0;
+                Vector3__double _218 = Vector3_init__double(0.0, 5.0, 0.0);
+                Vector3__double p0 = _218;
+                Vector3__double _224 = Vector3_init__double(0.0, 6.0, 0.0);
+                Vector3__double p1 = _224;
+                Vector3__double _230 = Vector3_init__double(0.0, 4.0, 0.0);
+                Vector3__double p2 = _230;
+                TestState* _238 = &state; // ref
+                Vector3__double* _243 = &p0; // ref
+                Vector3__double* _246 = &n; // ref
+                double _248 = Sdf_plane__double(_243, _246, h);
+                static String _249 = "Point on plane is 0.0";
+                String *_249_ref = &_249;
+                TestState _250 = Test_assert_MINUS_equal__double_String(_238, 0.0, _248, _249_ref);
                 Test_State_delete(state);
-                state = _128;  // Test.State = Test.State
+                state = _250;  // Test.State = Test.State
+                TestState* _257 = &state; // ref
+                Vector3__double* _262 = &p1; // ref
+                Vector3__double* _265 = &n; // ref
+                double _267 = Sdf_plane__double(_262, _265, h);
+                static String _268 = "Point above plane is 1.0";
+                String *_268_ref = &_268;
+                TestState _269 = Test_assert_MINUS_equal__double_String(_257, 1.0, _267, _268_ref);
+                Test_State_delete(state);
+                state = _269;  // Test.State = Test.State
+                TestState* _276 = &state; // ref
+                Vector3__double* _281 = &p2; // ref
+                Vector3__double* _284 = &n; // ref
+                double _286 = Sdf_plane__double(_281, _284, h);
+                static String _287 = "Point below plane is -1.0";
+                String *_287_ref = &_287;
+                TestState _288 = Test_assert_MINUS_equal__double_String(_276, -1.0, _286, _287_ref);
+                Test_State_delete(state);
+                state = _288;  // Test.State = Test.State
+                Vector3_delete__double(n);
+                Vector3_delete__double(p0);
+                Vector3_delete__double(p1);
+                Vector3_delete__double(p2);
+            }
+            /* let */ {
+                Vector3__double _298 = Vector3_init__double(0.0, 0.0, 0.0);
+                Vector3__double a = _298;
+                Vector3__double _304 = Vector3_init__double(0.0, 10.0, 0.0);
+                Vector3__double b = _304;
+                double r = 1.0;
+                Vector3__double _312 = Vector3_init__double(0.0, 5.0, 0.0);
+                Vector3__double p0 = _312;
+                Vector3__double _318 = Vector3_init__double(0.0, -1.0, 0.0);
+                Vector3__double p1 = _318;
+                Vector3__double _324 = Vector3_init__double(0.0, 11.0, 0.0);
+                Vector3__double p2 = _324;
+                Vector3__double _330 = Vector3_init__double(2.0, 5.0, 0.0);
+                Vector3__double p3 = _330;
+                TestState* _338 = &state; // ref
+                Vector3__double* _343 = &p0; // ref
+                Vector3__double* _346 = &a; // ref
+                Vector3__double* _349 = &b; // ref
+                double _351 = Sdf_capsule(_343, _346, _349, r);
+                static String _352 = "Capsule axis is -1.0";
+                String *_352_ref = &_352;
+                TestState _353 = Test_assert_MINUS_equal__double_String(_338, -1.0, _351, _352_ref);
+                Test_State_delete(state);
+                state = _353;  // Test.State = Test.State
+                TestState* _360 = &state; // ref
+                Vector3__double* _365 = &p1; // ref
+                Vector3__double* _368 = &a; // ref
+                Vector3__double* _371 = &b; // ref
+                double _373 = Sdf_capsule(_365, _368, _371, r);
+                static String _374 = "Capsule bottom tip is 0.0";
+                String *_374_ref = &_374;
+                TestState _375 = Test_assert_MINUS_equal__double_String(_360, 0.0, _373, _374_ref);
+                Test_State_delete(state);
+                state = _375;  // Test.State = Test.State
+                TestState* _382 = &state; // ref
+                Vector3__double* _387 = &p2; // ref
+                Vector3__double* _390 = &a; // ref
+                Vector3__double* _393 = &b; // ref
+                double _395 = Sdf_capsule(_387, _390, _393, r);
+                static String _396 = "Capsule top tip is 0.0";
+                String *_396_ref = &_396;
+                TestState _397 = Test_assert_MINUS_equal__double_String(_382, 0.0, _395, _396_ref);
+                Test_State_delete(state);
+                state = _397;  // Test.State = Test.State
+                TestState* _404 = &state; // ref
+                Vector3__double* _409 = &p3; // ref
+                Vector3__double* _412 = &a; // ref
+                Vector3__double* _415 = &b; // ref
+                double _417 = Sdf_capsule(_409, _412, _415, r);
+                static String _418 = "Capsule outside is 1.0";
+                String *_418_ref = &_418;
+                TestState _419 = Test_assert_MINUS_equal__double_String(_404, 1.0, _417, _418_ref);
+                Test_State_delete(state);
+                state = _419;  // Test.State = Test.State
                 Vector3_delete__double(a);
                 Vector3_delete__double(b);
-                Vector3_delete__double(p);
+                Vector3_delete__double(p0);
+                Vector3_delete__double(p1);
+                Vector3_delete__double(p2);
+                Vector3_delete__double(p3);
+            }
+            /* let */ {
+                Vector3__double _429 = Vector3_init__double(0.0, 0.0, 0.0);
+                Vector3__double a = _429;
+                Vector3__double _435 = Vector3_init__double(0.0, 0.0, 0.0);
+                Vector3__double b = _435;
+                double r = 1.0;
+                Vector3__double _443 = Vector3_init__double(0.0, 0.0, 0.0);
+                Vector3__double p0 = _443;
+                Vector3__double _449 = Vector3_init__double(2.0, 0.0, 0.0);
+                Vector3__double p1 = _449;
+                TestState* _457 = &state; // ref
+                Vector3__double* _462 = &p0; // ref
+                Vector3__double* _465 = &a; // ref
+                Vector3__double* _468 = &b; // ref
+                double _470 = Sdf_capsule(_462, _465, _468, r);
+                static String _471 = "Degenerate capsule center is -1.0";
+                String *_471_ref = &_471;
+                TestState _472 = Test_assert_MINUS_equal__double_String(_457, -1.0, _470, _471_ref);
+                Test_State_delete(state);
+                state = _472;  // Test.State = Test.State
+                TestState* _479 = &state; // ref
+                Vector3__double* _484 = &p1; // ref
+                Vector3__double* _487 = &a; // ref
+                Vector3__double* _490 = &b; // ref
+                double _492 = Sdf_capsule(_484, _487, _490, r);
+                static String _493 = "Degenerate capsule outside is 1.0";
+                String *_493_ref = &_493;
+                TestState _494 = Test_assert_MINUS_equal__double_String(_479, 1.0, _492, _493_ref);
+                Test_State_delete(state);
+                state = _494;  // Test.State = Test.State
+                Vector3_delete__double(a);
+                Vector3_delete__double(b);
+                Vector3_delete__double(p0);
+                Vector3_delete__double(p1);
             }
             /* let */ {
                 double d1 = 1.0;
-                double d2 = 1.2;
-                double _141 = Sdf_smooth_MINUS_union(d1, d2, 1.0);
-                double su = _141;
-                TestState* _148 = &state; // ref
-                bool _152 = Double__LT_(su, 1.0);
-                static String _153 = "Smooth union is smaller than constituents in the gooey zone";
-                String *_153_ref = &_153;
-                TestState _154 = Test_assert_MINUS_true__String(_148, _152, _153_ref);
+                double d2 = 1.0;
+                double k = 1.0;
+                double _510 = Sdf_smooth_MINUS_union(d1, d2, k);
+                double su = _510;
+                TestState* _517 = &state; // ref
+                bool _521 = Double__LT_(su, 1.0);
+                static String _522 = "Smooth union of 1.0 and 1.0 with k=1.0 is < 1.0 (0.75)";
+                String *_522_ref = &_522;
+                TestState _523 = Test_assert_MINUS_true__String(_517, _521, _522_ref);
                 Test_State_delete(state);
-                state = _154;  // Test.State = Test.State
+                state = _523;  // Test.State = Test.State
             }
-            TestState _158 = state;
-            _159 = _158;
+            TestState _527 = state;
+            _528 = _527;
         }
-        TestState* _160 = &_159; // ref
-        sdf_MINUS_test = _160;  // (Ref Test.State r109) = (Ref Test.State r109)
+        TestState* _529 = &_528; // ref
+        sdf_MINUS_test = _529;  // (Ref Test.State r331) = (Ref Test.State r331)
         Test_print_MINUS_test_MINUS_results(sdf_MINUS_test);
-        int* _168 = Test_State_failed(sdf_MINUS_test);
-        int _169 = Int_copy(_168);
-        int _170 = _169;
-        _171 = _170;
-        Test_State_delete(_159);
+        int* _537 = Test_State_failed(sdf_MINUS_test);
+        int _538 = Int_copy(_537);
+        int _539 = _538;
+        _540 = _539;
+        Test_State_delete(_528);
         Test_State_delete(_9);
     }
-    return _171;
+    return _540;
 }
 
 double max__double(double a, double b) {

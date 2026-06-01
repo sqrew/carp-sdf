@@ -16,15 +16,19 @@
   (defn sphere [p r]
     (- (Vector3.mag p) r))
 
-  (doc box "returns the signed distance to a box at the origin with dimensions 'b'.")
+  (doc box "returns the signed distance to a 3D box at the origin with half-dimensions 'b'.")
   (defn box [p b]
-    (let [q (Vector3.init (- (abs @(Vector3.x p)) @(Vector3.x b))
-                          (- (abs @(Vector3.y p)) @(Vector3.y b))
-                          (- (abs @(Vector3.z p)) @(Vector3.z b)))
-          q_max (Vector3.init (max 0.0 @(Vector3.x &q))
-                              (max 0.0 @(Vector3.y &q))
-                              (max 0.0 @(Vector3.z &q)))]
-      (+ (Vector3.mag &q_max) (min 0.0 (max @(Vector3.x &q) (max @(Vector3.y &q) @(Vector3.z &q)))))))
+    (let [px (abs @(Vector3.x p))
+          py (abs @(Vector3.y p))
+          pz (abs @(Vector3.z p))
+          bx @(Vector3.x b)
+          by @(Vector3.y b)
+          bz @(Vector3.z b)
+          qx (- px bx)
+          qy (- py by)
+          qz (- pz bz)
+          q_max (Vector3.init (max 0.0 qx) (max 0.0 qy) (max 0.0 qz))]
+      (+ (Vector3.mag &q_max) (min 0.0 (max qx (max qy qz))))))
 
   (doc torus "returns the signed distance to a torus with major radius 'tx' and minor radius 'ty'.")
   (defn torus [p t]
@@ -32,12 +36,17 @@
           qy @(Vector3.y p)]
       (- (sqrt (+ (* qx qx) (* qy qy))) @(Vector2.y t))))
 
-  (doc capsule "returns the signed distance to a capsule between points 'a' and 'b' with radius 'r'.")
+
+  (doc capsule "returns the signed distance to a capsule between points 'a' and 'b' with radius 'r'.
+Correctly handles degenerate segments (a == b) by treating them as spheres.")
   (defn capsule [p a b r]
     (let [pa (Vector3.sub p a)
           ba (Vector3.sub b a)
-          h (Double.clamp 0.0 1.0 (/ (Vector3.dot &pa &ba) (Vector3.dot &ba &ba)))]
-      (- (Vector3.mag &(Vector3.sub &pa &(Vector3.mul &ba h))) r)))
+          denom (Vector3.dot &ba &ba)]
+      (if (< denom 0.000001)
+        (- (Vector3.mag &pa) r)
+        (let [h (Double.clamp 0.0 1.0 (/ (Vector3.dot &pa &ba) denom))]
+          (- (Vector3.mag &(Vector3.sub &pa &(Vector3.mul &ba h))) r)))))
 
   (doc cylinder "returns the signed distance to a vertical cylinder with radius 'r' and height 'h'.")
   (defn cylinder [p r h]
@@ -46,7 +55,7 @@
           d_max (Vector2.init (max 0.0 @(Vector2.x &d)) (max 0.0 @(Vector2.y &d)))]
       (+ (Vector2.mag &d_max) (min 0.0 (max @(Vector2.x &d) @(Vector2.y &d))))))
 
-  (doc plane "returns the signed distance to a plane with normal 'n' (must be normalized) and height 'h'.")
+  (doc plane "returns the signed distance to a plane with normal 'n' (must be normalized) and distance from origin 'h'.")
   (defn plane [p n h]
     (+ (Vector3.dot p n) h))
 
@@ -89,7 +98,10 @@
   (defn translate [p t]
     (Vector3.sub p t))
 
-  (doc scale-space "scales the input point 'p' by factor 's'. Note: result should be multiplied by 's' for correct distance.")
+  (doc scale-space "scales the query space by factor 's'.
+Note: This only transforms the coordinate space. To preserve correct distances,
+you must multiply the final SDF result by 's'. 
+Example: (* s (Sdf.sphere (Sdf.scale-space p s) r))")
   (defn scale-space [p s]
     (Vector3.mul p (/ 1.0 s)))
 
@@ -127,9 +139,41 @@
   return length(pa - ba * h) - r;
 }")
 
+    (def cylinder "fn sdCylinder(p: vec3<f32>, r: f32, h: f32) -> f32 {
+  let d = vec2<f32>(length(p.xz) - r, abs(p.y) - h);
+  return length(max(d, vec2<f32>(0.0))) + min(max(d.x, d.y), 0.0);
+}")
+
+    (def plane "fn sdPlane(p: vec3<f32>, n: vec3<f32>, h: f32) -> f32 { return dot(p, n) + h; }")
+
     (def smooth-union "fn smin(a: f32, b: f32, k: f32) -> f32 {
   let h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
   return mix(b, a, h) - k * h * (1.0 - h);
+}")
+
+    (def smooth-subtract "fn ssub(a: f32, b: f32, k: f32) -> f32 {
+  let h = clamp(0.5 + 0.5 * (b + a) / k, 0.0, 1.0);
+  return mix(b, -a, h) + k * h * (1.0 - h);
+}")
+
+    (def smooth-intersect "fn sint(a: f32, b: f32, k: f32) -> f32 {
+  let h = clamp(0.5 + 0.5 * (b - a) / k, 0.0, 1.0);
+  return mix(b, a, h) + k * h * (1.0 - h);
+}")
+
+    (def rotate-x "fn rotateX(p: vec3<f32>, a: f32) -> vec3<f32> {
+  let c = cos(a); let s = sin(a);
+  return vec3<f32>(p.x, c * p.y - s * p.z, s * p.y + c * p.z);
+}")
+    
+    (def rotate-y "fn rotateY(p: vec3<f32>, a: f32) -> vec3<f32> {
+  let c = cos(a); let s = sin(a);
+  return vec3<f32>(c * p.x + s * p.z, p.y, c * p.z - s * p.x);
+}")
+
+    (def rotate-z "fn rotateZ(p: vec3<f32>, a: f32) -> vec3<f32> {
+  let c = cos(a); let s = sin(a);
+  return vec3<f32>(c * p.x - s * p.y, s * p.x + c * p.y, p.z);
 }")
   )
 )
