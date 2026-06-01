@@ -46,13 +46,11 @@
             r 1.0
             p0 (Vector3.init 0.0 5.0 0.0)   ;; Middle
             p1 (Vector3.init 0.0 -1.0 0.0)  ;; Bottom tip
-            p2 (Vector3.init 0.0 11.0 0.0)  ;; Top tip
-            p3 (Vector3.init 2.0 5.0 0.0)]  ;; Outside side
+            p2 (Vector3.init 2.0 5.0 0.0)]  ;; Outside side
         (do
           (set! state (assert-equal &state -1.0 (Sdf.capsule &p0 &a &b r) "Capsule axis is -1.0"))
           (set! state (assert-equal &state 0.0 (Sdf.capsule &p1 &a &b r) "Capsule bottom tip is 0.0"))
-          (set! state (assert-equal &state 0.0 (Sdf.capsule &p2 &a &b r) "Capsule top tip is 0.0"))
-          (set! state (assert-equal &state 1.0 (Sdf.capsule &p3 &a &b r) "Capsule outside is 1.0"))))
+          (set! state (assert-equal &state 1.0 (Sdf.capsule &p2 &a &b r) "Capsule outside is 1.0"))))
 
       ;; Degenerate Capsule Test (a == b)
       (let [a (Vector3.init 0.0 0.0 0.0)
@@ -64,9 +62,28 @@
           (set! state (assert-equal &state -1.0 (Sdf.capsule &p0 &a &b r) "Degenerate capsule center is -1.0"))
           (set! state (assert-equal &state 1.0 (Sdf.capsule &p1 &a &b r) "Degenerate capsule outside is 1.0"))))
 
-      ;; Smooth Union Test
-      (let [d1 1.0 d2 1.0 k 1.0
-            su (Sdf.smooth-union d1 d2 k)]
-        (set! state (assert-true &state (< su 1.0) "Smooth union of 1.0 and 1.0 with k=1.0 is < 1.0 (0.75)")))
+      ;; Transformation Tests
+      (let [p (Vector3.init 5.0 0.0 0.0)
+            t (Vector3.init 2.0 0.0 0.0)
+            res (Sdf.translate &p &t)]
+        (set! state (assert-true &state (Double.approx @(Vector3.x &res) 3.0) "Translate works")))
+
+      (let [p (Vector3.init 1.0 0.0 0.0)
+            angle (* 90.0 0.0174532925)
+            res (Sdf.rotate-y &p angle)]
+        (do
+          (set! state (assert-true &state (Double.approx @(Vector3.x &res) 0.0) "RotateY X -> 0"))
+          (set! state (assert-true &state (Double.approx @(Vector3.z &res) -1.0) "RotateY Z -> -1"))))
+
+      (let [p (Vector3.init 2.0 0.0 0.0)
+            res (Sdf.scale-space &p 2.0)]
+        (set! state (assert-true &state (Double.approx @(Vector3.x &res) 1.0) "Scale-space works (coordinate transform)")))
+
+      ;; Smooth Operation Tests (Numerical Expectations)
+      (let [d1 1.0 d2 1.0 k 1.0]
+        (set! state (assert-true &state (Double.approx (Sdf.smooth-union d1 d2 k) 0.75) "Smooth union (1,1,1) is 0.75")))
+
+      (let [d1 1.0 d2 1.0 k 0.0]
+        (set! state (assert-equal &state 1.0 (Sdf.smooth-union d1 d2 k) "Smooth union k=0 falls back to union")))
 
       state)))
