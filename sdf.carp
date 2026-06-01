@@ -106,14 +106,20 @@ Handles k=0 by falling back to standard intersect.")
   (defn translate [p t]
     (Vector3.sub p t))
 
-  (doc repeat "repeats space infinitely with a period 'c'.")
+  (doc repeat "repeats space infinitely with a period 'c'. A component of 0.0 in 'c' skips repetition on that axis.")
   (defn repeat [p c]
-    (let [qx (- (Double.mod (+ @(Vector3.x p) (* 0.5 @(Vector3.x c))) @(Vector3.x c)) (* 0.5 @(Vector3.x c)))
-          qy (- (Double.mod (+ @(Vector3.y p) (* 0.5 @(Vector3.y c))) @(Vector3.y c)) (* 0.5 @(Vector3.y c)))
-          qz (- (Double.mod (+ @(Vector3.z p) (* 0.5 @(Vector3.z c))) @(Vector3.z c)) (* 0.5 @(Vector3.z c)))]
+    (let [rx @(Vector3.x c)
+          ry @(Vector3.y c)
+          rz @(Vector3.z c)
+          px @(Vector3.x p)
+          py @(Vector3.y p)
+          pz @(Vector3.z p)
+          qx (if (> (abs rx) 0.000001) (- px (* rx (floor (+ (/ px rx) 0.5)))) px)
+          qy (if (> (abs ry) 0.000001) (- py (* ry (floor (+ (/ py ry) 0.5)))) py)
+          qz (if (> (abs rz) 0.000001) (- pz (* rz (floor (+ (/ pz rz) 0.5)))) pz)]
       (Vector3.init qx qy qz)))
 
-  (doc scale-space "scales the query space by factor 's'.")
+  (doc scale-space "scales the query space by factor 's'.
 
 Note: This only transforms the coordinate space. To preserve correct distances,
 you must multiply the final SDF result by 's'. 
